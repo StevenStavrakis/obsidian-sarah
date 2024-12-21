@@ -1,7 +1,8 @@
 import './styles.css'
 import { App, type PluginManifest, Plugin } from "obsidian"
 import type { PluginModule } from "@modules/types";
-import { ExampleModule } from "./modules/example/ExampleModule";
+import { ExampleModule } from "@modules/example/ExampleModule";
+import { ChatModule } from "@modules/chat/ChatModule";
 
 
 export default class MyPlugin extends Plugin {
@@ -11,7 +12,8 @@ export default class MyPlugin extends Plugin {
     super(app, manifest);
     // Add modules here
     this.modules = [
-      new ExampleModule(this)
+      new ExampleModule(this),
+      new ChatModule(this)
     ]
   }
 
