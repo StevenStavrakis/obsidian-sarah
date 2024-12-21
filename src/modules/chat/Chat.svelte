@@ -13,7 +13,7 @@
 
 <div id="whetstone-chat-view" class="w-full h-full relative p-0 grid grid-cols-1 grid-rows-[85%_15%] select-text">
 	<div class="overflow-y-auto overflow-x-visible">
-		<div class="sticky top-0 bg-base-20 p-3 border-b border-(--background-modifier-border)">Chat title</div>
+		<div class="sticky top-0 bg-base-20 p-3 border-b border-background-modifier-border">Chat title</div>
 		<div class="flex flex-col gap-8 h-fit py-4 px-3">
 			{#if chatModel.chat.length === 0}
 				<div class="empty-state"></div>
