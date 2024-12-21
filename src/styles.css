@@ -64,7 +64,7 @@
   --color-text-italic: var(--italic-color);
 
   /* Border */
-  --border-width: var(--border-width);
+  --spacing-border: var(--border-width);
 
   /* Border radius */
   --radius-clickable-icon: var(--clickable-icon-radius);
