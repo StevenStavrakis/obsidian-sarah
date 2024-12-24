@@ -10,6 +10,35 @@ export class ObsidianConnector {
     }
 
     /**
+     * Gets file suggestions based on a partial search term
+     * @param partial The partial file name or path to search for
+     * @returns Array of file suggestions with relative paths
+     */
+    getFileSuggestions(partial: string): string[] {
+        const files = this.app.vault.getFiles();
+        const searchTerm = partial.toLowerCase();
+        
+        return files
+            .filter(file => {
+                const path = file.path.toLowerCase();
+                const name = file.name.toLowerCase();
+                // Match if the path contains the search term or if the filename contains it
+                return path.includes(searchTerm) || name.includes(searchTerm);
+            })
+            .map(file => file.path)
+            // Sort by relevance - files whose names start with the search term come first
+            .sort((a, b) => {
+                const aName = a.split('/').pop()?.toLowerCase() || '';
+                const bName = b.split('/').pop()?.toLowerCase() || '';
+                const aStartsWith = aName.startsWith(searchTerm);
+                const bStartsWith = bName.startsWith(searchTerm);
+                if (aStartsWith && !bStartsWith) return -1;
+                if (!aStartsWith && bStartsWith) return 1;
+                return a.length - b.length; // Shorter paths come first
+            });
+    }
+
+    /**
      * Gets a TFile object from a file path
      * @param path The file path in the vault
      * @returns The corresponding TFile object if found
@@ -178,4 +207,3 @@ export class ObsidianConnector {
         }
     }
 }
-

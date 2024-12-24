@@ -1,8 +1,10 @@
 import type MyPlugin from 'src/main';
 import type { Messages } from '@anthropic-ai/sdk/src/resources/messages/messages.js';
 import Anthropic from '@anthropic-ai/sdk';
+import { TFile } from 'obsidian';
 import { createMessage, createDocumentBlock, createTextBlock } from './utils';
 import { ObsidianConnector } from './ObsidianConnector';
+import { chatStore } from './store/ChatStore';
 
 
 export interface DocumentContent {
@@ -29,6 +31,30 @@ export class ChatModel {
             apiKey: plugin.settings.apiKey,
             dangerouslyAllowBrowser: true
         });
+
+        // Subscribe to chat store changes
+        chatStore.subscribe(state => {
+            const currentChat = state.chats.find(chat => chat.id === state.currentChatId);
+            if (currentChat) {
+                this.chat = currentChat.messages;
+            } else {
+                this.chat = [];
+            }
+        });
+    }
+
+    async preloadFile(file: TFile): Promise<void> {
+        // Append the file reference to existing input
+        const currentInput = this.userInput.trim();
+        const fileReference = `@${file.path}`;
+        
+        if (currentInput) {
+            // If there's existing input, add a space before appending
+            this.userInput = `${currentInput} ${fileReference}`;
+        } else {
+            // If input is empty, just set the file reference
+            this.userInput = fileReference;
+        }
     }
 
     async parseInputIntoMessage(): Promise<Messages.MessageParam> {
@@ -36,7 +62,7 @@ export class ChatModel {
         const blocks: Messages.ContentBlockParam[] = [];
 
         // Extract file references starting with @ including optional file extensions
-        const fileRefs = messageText.match(/@[\w-/]+(?:\.[a-zA-Z0-9]+)?/g) || [];
+        const fileRefs = messageText.match(/@[^@\n\r\t]+/g) || [];
 
         // If we have any file references, split the message around them
         if (fileRefs.length > 0) {
@@ -69,14 +95,31 @@ export class ChatModel {
     async getCompletion() {
         const message = await this.parseInputIntoMessage();
         this.userInput = "";
-        this.chat = [...this.chat, message];
-        console.log("Chat: ", $state.snapshot(this.chat));
+        
+        const currentState = await new Promise<{ currentChatId: number | null }>(resolve => {
+            chatStore.subscribe(state => resolve({ currentChatId: state.currentChatId }))();
+        });
+
+        // Create a new chat if none is selected
+        if (!currentState.currentChatId) {
+            const id = await chatStore.createNewChat();
+            await chatStore.selectChat(id);
+        }
+
+        // Add user message
+        const updatedChat = [...this.chat, message];
+        await chatStore.updateChatMessages(currentState.currentChatId!, updatedChat);
+
+        // Get AI response
         const response = await this.client.messages.create({
-            messages: this.chat,
+            messages: updatedChat,
             max_tokens: 1024,
             model: "claude-3-5-sonnet-20241022"
         });
+
+        // Add AI response
         const parsedResponse = createMessage('assistant', response.content);
-        this.chat = [...this.chat, parsedResponse];
+        const finalChat = [...updatedChat, parsedResponse];
+        await chatStore.updateChatMessages(currentState.currentChatId!, finalChat);
     }
 }

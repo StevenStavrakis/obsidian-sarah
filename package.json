@@ -33,6 +33,7 @@
     "@anthropic-ai/sdk": "^0.33.1",
     "@tailwindcss/vite": "^4.0.0-beta.8",
     "@types/node": "^22.10.2",
+    "dexie": "^4.0.10",
     "obsidian": "^1.7.2",
     "tailwindcss": "^4.0.0-beta.8"
   }
