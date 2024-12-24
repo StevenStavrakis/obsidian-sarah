@@ -46,7 +46,7 @@ export class ChatModel {
     async preloadFile(file: TFile): Promise<void> {
         // Append the file reference to existing input
         const currentInput = this.userInput.trim();
-        const fileReference = `@${file.path}`;
+        const fileReference = `[[${file.path}]]`;
         
         if (currentInput) {
             // If there's existing input, add a space before appending
@@ -61,8 +61,8 @@ export class ChatModel {
         const messageText = this.userInput.trim();
         const blocks: Messages.ContentBlockParam[] = [];
 
-        // Extract file references starting with @ including optional file extensions
-        const fileRefs = messageText.match(/@[^@\n\r\t]+/g) || [];
+        // Extract file references in [[]] syntax
+        const fileRefs = messageText.match(/\[\[[^\[\]]+\]\]/g) || [];
 
         // If we have any file references, split the message around them
         if (fileRefs.length > 0) {
@@ -72,7 +72,7 @@ export class ChatModel {
                 if (refIndex > lastIndex) {
                     blocks.push(createTextBlock(messageText.slice(lastIndex, refIndex).trim()));
                 }
-                const filePath = ref.slice(1); // Remove @ symbol
+                const filePath = ref.slice(2, -2); // Remove [[ and ]] symbols
                 try {
                     const contentBlock = await this.obsidianConnector.createAttachmentBlock(filePath);
                     blocks.push(contentBlock);

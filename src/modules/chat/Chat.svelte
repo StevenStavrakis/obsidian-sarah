@@ -90,10 +90,9 @@
   {#if $chatStore.isListView}
     <ChatList />
   {:else}
-    <div class="h-full grid grid-cols-1 grid-rows-[85%_15%]">
-  <div class="overflow-y-auto overflow-x-visible">
-    <div
-      class="sticky top-0 bg-base-20 p-3 border-b border-background-modifier-border flex items-center gap-3"
+    <div class="h-full flex flex-col">
+      <div
+        class="flex items-center gap-3 bg-base-20 p-3 border-b border-background-modifier-border"
     >
       <button 
         class="p-2 hover:bg-base-25 rounded-md"
@@ -105,7 +104,8 @@
       </button>
       <span>Sarah AI Assistant</span>
     </div>
-    <div class="flex flex-col gap-8 h-fit py-4 px-3">
+    <div class="flex-1 overflow-y-auto">
+      <div class="flex flex-col gap-8 py-4 px-3">
       {#if chatModel.chat.length === 0}
         <div class="flex items-center justify-center h-full text-gray-500">
           Start a conversation by typing a message below
@@ -124,9 +124,9 @@
           Error: {chatModel.error}
         </div>
       {/if}
+      </div>
     </div>
-  </div>
-  <form class="h-full w-full flex flex-col gap-2 p-3" onsubmit={handleSubmit}>
+    <form class="w-full flex flex-col gap-2 p-3 bg-base-20 border-t border-background-modifier-border" onsubmit={handleSubmit}>
     <div class="flex flex-col flex-grow relative">
       <div class="flex items-start gap-2">
         <textarea
@@ -184,7 +184,9 @@
   }
 
   :global(#whetstone-chat-view) {
-    height: 100vh;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 </style>
