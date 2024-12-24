@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ChatMessage } from "./ChatModel.svelte.ts";
+  import type { Messages } from "@anthropic-ai/sdk/resources/index";
   import {
     isTextBlock,
     isImageBlock,
@@ -7,10 +7,10 @@
     isToolResultBlock,
     isToolUseBlock,
   } from "./utils";
-  let { message }: { message: ChatMessage } = $props();
+  let { message }: { message: Messages.MessageParam } = $props();
 </script>
 
-{#snippet messageRenderer(message: ChatMessage)}
+{#snippet messageRenderer(message: Messages.MessageParam)}
   {#each Array.isArray(message.content) ? message.content : [] as block}
     {#if typeof block === "string"}
       <p class="leading-relaxed p-0 m-0 text-[15px] whitespace-pre-wrap">

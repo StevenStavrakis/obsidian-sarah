@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { ChatMessage } from "./ChatModel.svelte.ts";
+  import type { Messages } from "@anthropic-ai/sdk/resources";
 
-  let { message }: { message: ChatMessage } = $props();
+  let { message }: { message: Messages.MessageParam } = $props();
 </script>
 
 {#if message.role === "assistant"}
