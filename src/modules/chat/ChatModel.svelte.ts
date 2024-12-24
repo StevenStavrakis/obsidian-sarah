@@ -1,6 +1,7 @@
 import type MyPlugin from 'src/main';
 import type { Messages } from '@anthropic-ai/sdk/src/resources/messages/messages.js';
 import Anthropic from '@anthropic-ai/sdk';
+import { TFile } from 'obsidian';
 import { createMessage, createDocumentBlock, createTextBlock } from './utils';
 import { ObsidianConnector } from './ObsidianConnector';
 import { chatStore } from './store/ChatStore';
@@ -42,12 +43,26 @@ export class ChatModel {
         });
     }
 
+    async preloadFile(file: TFile): Promise<void> {
+        // Append the file reference to existing input
+        const currentInput = this.userInput.trim();
+        const fileReference = `@${file.path}`;
+        
+        if (currentInput) {
+            // If there's existing input, add a space before appending
+            this.userInput = `${currentInput} ${fileReference}`;
+        } else {
+            // If input is empty, just set the file reference
+            this.userInput = fileReference;
+        }
+    }
+
     async parseInputIntoMessage(): Promise<Messages.MessageParam> {
         const messageText = this.userInput.trim();
         const blocks: Messages.ContentBlockParam[] = [];
 
         // Extract file references starting with @ including optional file extensions
-        const fileRefs = messageText.match(/@[\w-/]+(?:\.[a-zA-Z0-9]+)?/g) || [];
+        const fileRefs = messageText.match(/@[^@\n\r\t]+/g) || [];
 
         // If we have any file references, split the message around them
         if (fileRefs.length > 0) {

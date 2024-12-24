@@ -41,4 +41,10 @@ export class ChatView extends ItemView {
         }
         this.chatModel = undefined;
     }
+
+    async preloadFile(file: TFile) {
+        if (this.chatModel) {
+            await this.chatModel.preloadFile(file);
+        }
+    }
 }
