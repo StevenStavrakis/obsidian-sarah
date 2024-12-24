@@ -2,7 +2,7 @@ import type { PluginModule } from "@modules/types";
 import { TFile, TFolder, type Menu, type Plugin, type TAbstractFile, type WorkspaceLeaf } from "obsidian";
 import { ChatView } from "./ChatView.ts";
 import type MyPlugin from "src/main.ts";
-import { chatStore } from "./store/ChatStore";
+import { chatStore } from "./store/ChatStore.svelte.js";
 
 export class ChatModule implements PluginModule {
     plugin: MyPlugin;

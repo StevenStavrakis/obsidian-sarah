@@ -52,6 +52,7 @@
             role="button"
             tabindex="0"
             on:keydown={(e) => e.key === 'Enter' && openFile(fileInfo.path)}
+            aria-label={`Open file: ${fileInfo.filename}`}
           >
             <div class="text-[13px] text-white/60 mb-1">{fileInfo.filename}</div>
             <p class="leading-relaxed p-0 m-0 text-[15px] whitespace-pre-wrap font-mono line-clamp-2 overflow-hidden">

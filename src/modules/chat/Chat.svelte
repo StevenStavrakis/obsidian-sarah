@@ -1,10 +1,8 @@
 <script lang="ts">
-  import type {
-    ChatModel,
-  } from "./ChatModel.svelte.ts";
+  import type { ChatModel } from "./ChatModel.svelte.ts";
   import MessageRenderer from "./MessageRenderer.svelte";
   import ChatList from "./ChatList.svelte";
-  import { chatStore } from "./store/ChatStore";
+  import { chatState } from "./store/ChatState.svelte.ts";
 
   let { chatModel }: { chatModel: ChatModel } = $props();
   let suggestions: string[] = $state([]);
@@ -42,7 +40,7 @@
 
     // Get the partial search term
     const partial = text.slice(currentWordStart + 1, cursorPosition);
-    suggestions = chatModel.obsidianConnector.getFileSuggestions(partial);
+    suggestions = chatModel.getFileSuggestions(partial);
     showSuggestions = suggestions.length > 0;
     selectedIndex = 0;
   };
@@ -89,7 +87,7 @@
   id="whetstone-chat-view"
   class="w-full h-full relative p-0 select-text"
 >
-  {#if $chatStore.isListView}
+  {#if chatState.isListView}
     <ChatList />
   {:else}
     <div class="h-full flex flex-col">
@@ -98,9 +96,10 @@
     >
       <button 
         class="p-2 hover:bg-base-25 rounded-md"
-        onclick={() => chatStore.showChatList()}
+        onclick={() => chatState.showChatList()}
+        aria-label="Back to chat list"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
       </button>
@@ -108,13 +107,13 @@
     </div>
     <div class="flex-1 overflow-y-auto">
       <div class="flex flex-col gap-8 py-4 px-3">
-      {#if chatModel.chat.length === 0}
+      {#if chatState.getCurrentMessages().length === 0}
         <div class="flex items-center justify-center h-full text-gray-500">
           Start a conversation by typing a message below
         </div>
       {/if}
-      {#each chatModel.chat as message (message)}
-        <MessageRenderer {message} app={chatModel.plugin.app} />
+      {#each chatState.getCurrentMessages() as message (message)}
+        <MessageRenderer {message} app={chatModel.getApp()} />
       {/each}
       {#if chatModel.isLoading}
         <div class="flex items-center gap-2 text-gray-500 px-4">
@@ -144,12 +143,20 @@
         ></textarea>
       </div>
     {#if showSuggestions}
-      <div class="absolute bottom-full left-0 w-full bg-base-25 border border-background-modifier-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+      <div 
+        class="absolute bottom-full left-0 w-full bg-base-25 border border-background-modifier-border rounded-md shadow-lg max-h-48 overflow-y-auto"
+        role="listbox"
+        aria-label="File suggestions"
+      >
         {#each suggestions as suggestion, i}
           <div
             class="px-3 py-1.5 cursor-pointer hover:bg-base-30 flex items-center gap-2 {i === selectedIndex ? 'bg-base-30' : ''}"
             onclick={() => insertSuggestion(suggestion)}
             id={`suggestion-${i}`}
+            role="option"
+            aria-selected={i === selectedIndex}
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && insertSuggestion(suggestion)}
           >
             <span class="flex-grow">{suggestion}</span>
             {#if i === selectedIndex}
