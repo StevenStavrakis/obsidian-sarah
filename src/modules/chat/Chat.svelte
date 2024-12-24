@@ -3,6 +3,8 @@
     ChatModel,
   } from "./ChatModel.svelte.ts";
   import MessageRenderer from "./MessageRenderer.svelte";
+  import ChatList from "./ChatList.svelte";
+  import { chatStore } from "./store/ChatStore";
 
   let { chatModel }: { chatModel: ChatModel } = $props();
   let suggestions: string[] = $state([]);
@@ -83,13 +85,25 @@
 
 <div
   id="whetstone-chat-view"
-  class="w-full h-full relative p-0 grid grid-cols-1 grid-rows-[85%_15%] select-text"
+  class="w-full h-full relative p-0 select-text"
 >
+  {#if $chatStore.isListView}
+    <ChatList />
+  {:else}
+    <div class="h-full grid grid-cols-1 grid-rows-[85%_15%]">
   <div class="overflow-y-auto overflow-x-visible">
     <div
-      class="sticky top-0 bg-base-20 p-3 border-b border-background-modifier-border"
+      class="sticky top-0 bg-base-20 p-3 border-b border-background-modifier-border flex items-center gap-3"
     >
-      Sarah AI Assistant
+      <button 
+        class="p-2 hover:bg-base-25 rounded-md"
+        onclick={() => chatStore.showChatList()}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span>Sarah AI Assistant</span>
     </div>
     <div class="flex flex-col gap-8 h-fit py-4 px-3">
       {#if chatModel.chat.length === 0}
@@ -160,10 +174,17 @@
       {chatModel.isLoading ? "Sending..." : "Send"}
     </button>
   </form>
+    </div>
+  {/if}
 </div>
 
 <style>
   :global(.view-content:has(#whetstone-chat-view)) {
     padding: 0 !important;
+  }
+
+  :global(#whetstone-chat-view) {
+    height: 100vh;
+    overflow: hidden;
   }
 </style>

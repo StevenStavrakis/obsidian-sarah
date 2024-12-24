@@ -3,6 +3,7 @@ import type { Messages } from '@anthropic-ai/sdk/src/resources/messages/messages
 import Anthropic from '@anthropic-ai/sdk';
 import { createMessage, createDocumentBlock, createTextBlock } from './utils';
 import { ObsidianConnector } from './ObsidianConnector';
+import { chatStore } from './store/ChatStore';
 
 
 export interface DocumentContent {
@@ -28,6 +29,16 @@ export class ChatModel {
         this.client = new Anthropic({
             apiKey: plugin.settings.apiKey,
             dangerouslyAllowBrowser: true
+        });
+
+        // Subscribe to chat store changes
+        chatStore.subscribe(state => {
+            const currentChat = state.chats.find(chat => chat.id === state.currentChatId);
+            if (currentChat) {
+                this.chat = currentChat.messages;
+            } else {
+                this.chat = [];
+            }
         });
     }
 
@@ -69,14 +80,31 @@ export class ChatModel {
     async getCompletion() {
         const message = await this.parseInputIntoMessage();
         this.userInput = "";
-        this.chat = [...this.chat, message];
-        console.log("Chat: ", $state.snapshot(this.chat));
+        
+        const currentState = await new Promise<{ currentChatId: number | null }>(resolve => {
+            chatStore.subscribe(state => resolve({ currentChatId: state.currentChatId }))();
+        });
+
+        // Create a new chat if none is selected
+        if (!currentState.currentChatId) {
+            const id = await chatStore.createNewChat();
+            await chatStore.selectChat(id);
+        }
+
+        // Add user message
+        const updatedChat = [...this.chat, message];
+        await chatStore.updateChatMessages(currentState.currentChatId!, updatedChat);
+
+        // Get AI response
         const response = await this.client.messages.create({
-            messages: this.chat,
+            messages: updatedChat,
             max_tokens: 1024,
             model: "claude-3-5-sonnet-20241022"
         });
+
+        // Add AI response
         const parsedResponse = createMessage('assistant', response.content);
-        this.chat = [...this.chat, parsedResponse];
+        const finalChat = [...updatedChat, parsedResponse];
+        await chatStore.updateChatMessages(currentState.currentChatId!, finalChat);
     }
 }
