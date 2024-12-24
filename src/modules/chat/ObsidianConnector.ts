@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
-import { createDocumentBlock, createImageBlock, createTextBlock } from './utils';
+import { createDocumentBlock, createFileEmbedBlock, createImageBlock, createTextBlock } from './utils';
 import type { Messages } from '@anthropic-ai/sdk/resources';
+import { create } from 'domain';
 
 export class ObsidianConnector {
     private app: App;
@@ -203,7 +204,7 @@ export class ObsidianConnector {
         } else {
             // For text files (markdown, etc), return the raw content
             const content = await this.app.vault.read(file);
-            return createTextBlock(content);
+            return createFileEmbedBlock(content, file.name, file.path);
         }
     }
 }

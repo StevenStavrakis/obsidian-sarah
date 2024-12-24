@@ -69,8 +69,9 @@ export class ChatModel {
             let lastIndex = 0;
             for (const ref of fileRefs) {
                 const refIndex = messageText.indexOf(ref, lastIndex);
-                if (refIndex > lastIndex) {
-                    blocks.push(createTextBlock(messageText.slice(lastIndex, refIndex).trim()));
+                const textBetween = messageText.slice(lastIndex, refIndex).trim();
+                if (textBetween) {
+                    blocks.push(createTextBlock(textBetween));
                 }
                 const filePath = ref.slice(2, -2); // Remove [[ and ]] symbols
                 try {
@@ -109,6 +110,8 @@ export class ChatModel {
         // Add user message
         const updatedChat = [...this.chat, message];
         await chatStore.updateChatMessages(currentState.currentChatId!, updatedChat);
+
+        console.log(updatedChat)
 
         // Get AI response
         const response = await this.client.messages.create({

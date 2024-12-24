@@ -1,7 +1,6 @@
 import './styles.css'
 import { App, type PluginManifest, Plugin, PluginSettingTab, Setting } from "obsidian"
 import type { PluginModule } from "@modules/types";
-import { ExampleModule } from "@modules/example/ExampleModule";
 import { ChatModule } from "@modules/chat/ChatModule";
 
 interface PluginSettings {
@@ -19,7 +18,6 @@ export default class MyPlugin extends Plugin {
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
     this.modules = [
-      new ExampleModule(this),
       new ChatModule(this),
     ]
   }
@@ -28,6 +26,14 @@ export default class MyPlugin extends Plugin {
     // Load settings
     await this.loadSettings();
     this.addSettingTab(new SettingTab(this.app, this));
+
+    // Add ribbon button
+    this.addRibbonIcon('message-square', 'Show Chat List', () => {
+      const chatModule = this.modules.find(m => m instanceof ChatModule) as ChatModule;
+      if (chatModule) {
+        chatModule.openChatList();
+      }
+    });
 
     // Load modules
     this.modules.forEach(module => module.onload());

@@ -5,6 +5,10 @@ export function isTextBlock(block: unknown): block is Messages.TextBlock | Messa
   return typeof block === 'object' && block !== null && 'type' in block && block.type === 'text';
 }
 
+export function isFileEmbed(text: string): boolean {
+  return text.startsWith('[FILE:') && text.endsWith('[/FILE]');
+}
+
 export function isImageBlock(block: unknown): block is Messages.ImageBlockParam {
   return typeof block === 'object' && block !== null && 'type' in block && block.type === 'image' && 'source' in block;
 }
@@ -43,6 +47,22 @@ export function createTextBlock(text: string): Messages.TextBlockParam {
     type: 'text',
     text
   };
+}
+
+export function createFileEmbedBlock(text: string, filename: string, path: string): Messages.TextBlockParam {
+  return {
+    type: 'text',
+    text: `[FILE: ${filename}|${path}]\n${text}\n[/FILE]`
+  };
+}
+
+export function parseFileEmbed(text: string): { filename: string; path: string; content: string } | null {
+  if (!isFileEmbed(text)) return null;
+  const match = text.match(/\[FILE: (.*?)\|(.*?)\]/);
+  if (!match) return null;
+  const [_, filename, path] = match;
+  const content = text.slice(text.indexOf('\n') + 1, text.lastIndexOf('\n'));
+  return { filename, path, content };
 }
 
 export function createImageBlock(

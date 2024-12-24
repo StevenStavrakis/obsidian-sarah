@@ -13,6 +13,8 @@
   let currentWordStart = 0;
   let selectedIndex = $state(0);
 
+  $inspect(chatModel);
+
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     chatModel.getCompletion();
@@ -112,7 +114,7 @@
         </div>
       {/if}
       {#each chatModel.chat as message (message)}
-        <MessageRenderer {message} />
+        <MessageRenderer {message} app={chatModel.plugin.app} />
       {/each}
       {#if chatModel.isLoading}
         <div class="flex items-center gap-2 text-gray-500 px-4">
