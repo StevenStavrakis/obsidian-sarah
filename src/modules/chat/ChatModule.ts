@@ -1,35 +1,33 @@
 import type { PluginModule } from "@modules/types";
 import { TFile, type Menu, type Plugin, type TAbstractFile, type WorkspaceLeaf } from "obsidian";
 import { ChatView } from "./ChatView.ts";
+import type MyPlugin from "src/main.ts";
 
 export class ChatModule implements PluginModule {
-    plugin: Plugin;
+    plugin: MyPlugin;
     identifier = "chat";
 
-    constructor(plugin: Plugin) {
+    constructor(plugin: MyPlugin) {
         this.plugin = plugin;
     }
 
     onload(): void {
         const p = this.plugin;
-        p.registerView(this.getViewType(), (leaf) => new ChatView(leaf, this.identifier));
+        p.registerView(this.getViewType(), (leaf) => new ChatView(leaf, this.identifier, this.plugin));
 
         p.registerEvent(
             p.app.workspace.on('file-menu', (menu: Menu, file: TAbstractFile) => {
-                if (file instanceof TFile) {
-                    menu.addItem((item) => {
-                        item.setTitle('Whetstone')
-                            .setIcon('dice')
-                            .onClick(() => {
-                                console.log('clicking whetstone');
-                                console.log(file.name)
-                                this.activateLeaf();
-                            });
-                    });
-                }
+                menu.addItem((item) => {
+                    item.setTitle('Chat with file')
+                        .setIcon('message-square')
+                        .onClick(() => {
+                            if (file instanceof TFile) {
+                                this.activateLeaf(file);
+                            }
+                        });
+                });
             })
         )
-
     }
 
     onunload(): void {
@@ -40,7 +38,7 @@ export class ChatModule implements PluginModule {
         return this.identifier;
     }
 
-    async activateLeaf(): Promise<void> {
+    async activateLeaf(file?: TFile): Promise<void> {
         const { workspace } = this.plugin.app;
         let leaf: WorkspaceLeaf | null = null;
 
@@ -55,10 +53,9 @@ export class ChatModule implements PluginModule {
             }
             await leaf.setViewState({
                 type: this.getViewType(),
-                active: true
+                active: true,
             });
         }
-
         workspace.revealLeaf(leaf);
     }
 }

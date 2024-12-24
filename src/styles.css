@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+@theme inline {
   /* Colors */
   --color-base-00: var(--color-base-00);
   --color-base-05: var(--color-base-05);

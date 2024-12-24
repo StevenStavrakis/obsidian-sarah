@@ -1,50 +1,82 @@
-interface ChatMessage {
-    role: "user" | "assistant";
-    content: string;
+import type MyPlugin from 'src/main';
+import type { Messages } from '@anthropic-ai/sdk/src/resources/messages/messages.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { createMessage, createDocumentBlock, createTextBlock } from './utils';
+import { ObsidianConnector } from './ObsidianConnector';
+
+
+export interface DocumentContent {
+    type: 'document';
+    filename: string;
+    mediaType: 'application/pdf';
+    data: string;
 }
 
-const chat: ChatMessage[] = [
-    {
-        role: "user",
-        content: `If you’re comfortable with React’s ecosystem, a custom JSX-based approach (something like a Babel plugin or a Vite plugin that interprets JSX trees as plugin declarations) could also be viable.
-You wouldn’t necessarily need the runtime aspects of React. You could treat JSX purely as a declarative syntax for plugin features. The output would again be imperative Obsidian plugin code.
-One advantage of using JSX might be the popularity and familiarity of React’s ecosystem for many developers. But you’d still need a transformation step that converts the JSX elements into the plugin’s imperative registration calls.`,
-    },
-    {
-        role: "assistant",
-        content: `Yes, you are diverging from the standard DOM-based nature of Svelte or React. However, that doesn’t inherently mean it’s not useful. Using Svelte here is more about leveraging a familiar component-based, declarative syntax and its compile-time ecosystem to generate your plugin’s imperative code. If you think a JSX approach (or any other templating approach) would resonate more with the target audience—or if it provides better tooling or developer experience—then that might be a better path. Ultimately, the choice of Svelte vs. JSX vs. another approach comes down to which ecosystem and toolchain you prefer and what your users will find more intuitive, rather than a strict technical limitation.`,
-    },
-    {
-        role: "user",
-        content: `If you’re comfortable with React’s ecosystem, a custom JSX-based approach (something like a Babel plugin or a Vite plugin that interprets JSX trees as plugin declarations) could also be viable.
-You wouldn’t necessarily need the runtime aspects of React. You could treat JSX purely as a declarative syntax for plugin features. The output would again be imperative Obsidian plugin code.
-One advantage of using JSX might be the popularity and familiarity of React’s ecosystem for many developers. But you’d still need a transformation step that converts the JSX elements into the plugin’s imperative registration calls.`,
-    },
-    {
-        role: "assistant",
-        content: `Yes, you are diverging from the standard DOM-based nature of Svelte or React. However, that doesn’t inherently mean it’s not useful. Using Svelte here is more about leveraging a familiar component-based, declarative syntax and its compile-time ecosystem to generate your plugin’s imperative code. If you think a JSX approach (or any other templating approach) would resonate more with the target audience—or if it provides better tooling or developer experience—then that might be a better path. Ultimately, the choice of Svelte vs. JSX vs. another approach comes down to which ecosystem and toolchain you prefer and what your users will find more intuitive, rather than a strict technical limitation.`,
-    },
-]
-
-// Something weird with state rune here...
-// Causing an error
-
 export class ChatModel {
-    chat: ChatMessage[] = $state(chat);
+    private client: Anthropic;
+    chat: Messages.MessageParam[] = $state([]);
     userInput: string = $state("");
+    pendingDocuments: DocumentContent[] = $state([]);
+    isLoading: boolean = $state(false);
+    error: string | null = $state(null);
+    plugin: MyPlugin;
+    obsidianConnector: ObsidianConnector;
 
-    submitMessage() {
-        const userMessage: ChatMessage = {
-            role: "user",
-            content: this.userInput,
-        };
-        this.chat.push(userMessage);
-        this.userInput = "";
+    constructor(plugin: MyPlugin) {
+        this.plugin = plugin;
+        this.obsidianConnector = new ObsidianConnector(plugin.app);
+        this.client = new Anthropic({
+            apiKey: plugin.settings.apiKey,
+            dangerouslyAllowBrowser: true
+        });
     }
 
-    async callAiEndoint() {
-        console.log("handleGenerateResponse");
+    async parseInputIntoMessage(): Promise<Messages.MessageParam> {
+        const messageText = this.userInput.trim();
+        const blocks: Messages.ContentBlockParam[] = [];
 
-        return "hi"
+        // Extract file references starting with @ including optional file extensions
+        const fileRefs = messageText.match(/@[\w-/]+(?:\.[a-zA-Z0-9]+)?/g) || [];
+
+        // If we have any file references, split the message around them
+        if (fileRefs.length > 0) {
+            let lastIndex = 0;
+            for (const ref of fileRefs) {
+                const refIndex = messageText.indexOf(ref, lastIndex);
+                if (refIndex > lastIndex) {
+                    blocks.push(createTextBlock(messageText.slice(lastIndex, refIndex).trim()));
+                }
+                const filePath = ref.slice(1); // Remove @ symbol
+                try {
+                    const contentBlock = await this.obsidianConnector.createAttachmentBlock(filePath);
+                    blocks.push(contentBlock);
+                } catch (error) {
+                    console.warn(`Failed to load file content for ${filePath}:`, error);
+                }
+
+                lastIndex = refIndex + ref.length;
+            }
+            if (lastIndex < messageText.length) {
+                blocks.push(createTextBlock(messageText.slice(lastIndex).trim()));
+            }
+        } else {
+            blocks.push(createTextBlock(messageText));
+        }
+
+        return createMessage('user', blocks);
+    }
+
+    async getCompletion() {
+        const message = await this.parseInputIntoMessage();
+        this.userInput = "";
+        this.chat = [...this.chat, message];
+        console.log("Chat: ", $state.snapshot(this.chat));
+        const response = await this.client.messages.create({
+            messages: this.chat,
+            max_tokens: 1024,
+            model: "claude-3-5-sonnet-20241022"
+        });
+        const parsedResponse = createMessage('assistant', response.content);
+        this.chat = [...this.chat, parsedResponse];
     }
 }
