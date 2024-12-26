@@ -1,21 +1,7 @@
 <script lang="ts">
     import { chatState } from './store/ChatState.svelte.ts';
     import { fade } from 'svelte/transition';
-
-    let editingId: number | null = $state(null);
-    let editTitle = $state('');
-
-    function startEditing(id: number, currentTitle: string) {
-        editingId = id;
-        editTitle = currentTitle;
-    }
-
-    async function saveTitle(id: number) {
-        if (editTitle.trim()) {
-            await chatState.updateChatTitle(id, editTitle.trim());
-        }
-        editingId = null;
-    }
+    import ChatActions from './ChatActions.svelte';
 
     async function createNewChat() {
         const id = await chatState.createNewChat();
@@ -38,66 +24,27 @@
         </button>
     </div>
     
-    <div class="chat-items" role="list">
+    <ul class="chat-items">
         {#each chatState.chats as chat (chat.id)}
-            <div 
+            <li 
                 class="chat-item"
                 class:active={chat.id === chatState.currentChatId}
                 transition:fade
                 role="listitem"
             >
-                <div 
-                    class="chat-item-content" 
+                <button 
+                    class="chat-item-button"
                     onclick={() => chatState.selectChat(chat.id!)}
-                    role="button"
-                    tabindex="0"
-                    onkeydown={(e) => e.key === 'Enter' && chatState.selectChat(chat.id!)}
+                    aria-current={chat.id === chatState.currentChatId}
                 >
-                    {#if editingId === chat.id}
-                        <input
-                            type="text"
-                            bind:value={editTitle}
-                            onblur={() => saveTitle(chat.id!)}
-                            onkeydown={(e) => e.key === 'Enter' && saveTitle(chat.id!)}
-                            class="edit-title"
-                            aria-label="Edit chat title"
-                        />
-                    {:else}
-                        <span class="chat-title">{chat.title}</span>
-                    {/if}
+                    <span class="chat-title">{chat.title}</span>
+                </button>
+                <div class="chat-item-actions">
+                    <ChatActions chatId={chat.id!} chatTitle={chat.title} />
                 </div>
-                
-                <div class="chat-actions">
-                    <button 
-                        class="edit-btn"
-                        onclick={(e) => {
-                            e.stopPropagation();
-                            startEditing(chat.id!, chat.title);
-                        }}
-                        aria-label="Edit chat title"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                    </button>
-                    <button 
-                        class="delete-btn"
-                        onclick={(e) => {
-                            e.stopPropagation();
-                            chatState.deleteChat(chat.id!);
-                        }}
-                        aria-label="Delete chat"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
+            </li>
         {/each}
-    </div>
+    </ul>
 </div>
 
 <style>
@@ -142,25 +89,33 @@
     .chat-item {
         display: flex;
         align-items: center;
-        padding: 12px;
         margin-bottom: 4px;
-        border-radius: 4px;
-        cursor: pointer;
-        justify-content: space-between;
         border-bottom: 1px solid var(--background-modifier-border);
     }
 
-    .chat-item:hover {
+    .chat-item-button {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        background: none;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: left;
+        min-width: 0;
+    }
+
+    .chat-item-button:hover {
         background-color: var(--background-modifier-hover);
     }
 
-    .chat-item.active {
+    .chat-item.active .chat-item-button {
         background-color: var(--background-modifier-active);
     }
 
-    .chat-item-content {
-        flex: 1;
-        min-width: 0;
+    .chat-item-actions {
+        padding-right: 12px;
     }
 
     .chat-title {
@@ -179,25 +134,59 @@
     }
 
     .chat-actions {
-        display: flex;
-        gap: 4px;
+        position: relative;
     }
 
-    .edit-btn, .delete-btn {
+    .action-btn {
         background: none;
         border: none;
         cursor: pointer;
         padding: 4px;
         color: var(--text-muted);
         border-radius: 4px;
+        display: flex;
+        align-items: center;
     }
 
-    .edit-btn:hover, .delete-btn:hover {
+    .action-btn:hover {
         color: var(--text-normal);
         background-color: var(--background-modifier-hover);
     }
 
-    .delete-btn:hover {
+    .action-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: var(--background-primary);
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        min-width: 140px;
+        z-index: 100;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-normal);
+        text-align: left;
+    }
+
+    .menu-item:hover {
+        background-color: var(--background-modifier-hover);
+    }
+
+    .menu-item.delete {
         color: var(--text-error);
+    }
+
+    .menu-item.delete:hover {
+        background-color: var(--background-modifier-error);
     }
 </style>

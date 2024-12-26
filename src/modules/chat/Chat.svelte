@@ -3,6 +3,7 @@
   import MessageRenderer from "./MessageRenderer.svelte";
   import ChatList from "./ChatList.svelte";
   import { chatState } from "./store/ChatState.svelte.ts";
+  import ChatActions from "./ChatActions.svelte";
 
   let { chatModel }: { chatModel: ChatModel } = $props();
   let suggestions: string[] = $state([]);
@@ -10,6 +11,7 @@
   let textareaElement: HTMLTextAreaElement;
   let currentWordStart = 0;
   let selectedIndex = $state(0);
+  let lastInputLength = $state(0); // Track previous input length to detect typing vs deletion
 
   $inspect(chatModel);
 
@@ -24,25 +26,49 @@
     const cursorPosition = textarea.selectionStart;
     const text = textarea.value;
     
-    // Find the start of the current word
-    currentWordStart = text.lastIndexOf('@', cursorPosition);
-    if (currentWordStart === -1 || currentWordStart > cursorPosition) {
-      showSuggestions = false;
-      return;
+    // Auto-complete brackets only when typing [[ (not when deleting)
+    const isTyping = text.length > lastInputLength;
+    lastInputLength = text.length;
+    
+    if (isTyping && 
+        text.slice(cursorPosition - 2, cursorPosition) === "[[" && 
+        !text.slice(cursorPosition).includes("]]")) { // Don't add if closing brackets exist
+      chatModel.userInput = text.slice(0, cursorPosition) + "]]" + text.slice(cursorPosition);
+      setTimeout(() => {
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      }, 0);
     }
 
-    // Check if we're in the middle of a word
-    const nextSpace = text.indexOf(' ', currentWordStart);
-    if (nextSpace !== -1 && nextSpace < cursorPosition) {
+    // Check for file suggestions
+    const beforeCursor = text.slice(0, cursorPosition);
+    const lastOpenBrackets = beforeCursor.lastIndexOf('[[');
+    const afterCursor = text.slice(cursorPosition);
+    const nextCloseBrackets = afterCursor.indexOf(']]');
+    
+    if (lastOpenBrackets !== -1 && 
+        (nextCloseBrackets !== -1 || afterCursor.length === 0) && 
+        lastOpenBrackets < cursorPosition) {
+      // We're typing between [[ and ]]
+      currentWordStart = lastOpenBrackets + 2;
+      const partial = text.slice(currentWordStart, cursorPosition);
+      suggestions = chatModel.getFileSuggestions(partial);
+      showSuggestions = suggestions.length > 0;
+      selectedIndex = 0;
+    } else {
+      // Check for @ mentions
+      currentWordStart = text.lastIndexOf('@', cursorPosition);
+      if (currentWordStart !== -1 && currentWordStart < cursorPosition) {
+        const nextSpace = text.indexOf(' ', currentWordStart);
+        if (nextSpace === -1 || nextSpace > cursorPosition) {
+          const partial = text.slice(currentWordStart + 1, cursorPosition);
+          suggestions = chatModel.getFileSuggestions(partial);
+          showSuggestions = suggestions.length > 0;
+          selectedIndex = 0;
+          return;
+        }
+      }
       showSuggestions = false;
-      return;
     }
-
-    // Get the partial search term
-    const partial = text.slice(currentWordStart + 1, cursorPosition);
-    suggestions = chatModel.getFileSuggestions(partial);
-    showSuggestions = suggestions.length > 0;
-    selectedIndex = 0;
   };
 
   const handleKeydown = (e: KeyboardEvent) => {
@@ -71,13 +97,35 @@
     const text = chatModel.userInput;
     const beforeCursor = text.slice(0, currentWordStart);
     const afterCursor = text.slice(textareaElement.selectionStart);
-    chatModel.userInput = `${beforeCursor}@${suggestion}${afterCursor}`;
+    const isAtMention = text[currentWordStart - 1] === '@';
+    
+    if (isAtMention) {
+      chatModel.userInput = `${beforeCursor}${suggestion}${afterCursor}`;
+    } else {
+      // Check if there are already closing brackets in afterCursor
+      const hasClosingBrackets = afterCursor.includes(']]');
+      chatModel.userInput = hasClosingBrackets
+        ? `${beforeCursor}${suggestion}${afterCursor}`
+        : `${beforeCursor}${suggestion}]]${afterCursor}`;
+    }
     showSuggestions = false;
+    
+    const newPosition = currentWordStart + suggestion.length;
     
     // Set cursor position after the inserted suggestion
     setTimeout(() => {
-      const newPosition = currentWordStart + suggestion.length + 1;
-      textareaElement.setSelectionRange(newPosition, newPosition);
+      if (isAtMention) {
+        textareaElement.setSelectionRange(newPosition, newPosition);
+      } else {
+        // For brackets, find and move cursor before ]]
+        const text = chatModel.userInput;
+        const closingBrackets = text.indexOf(']]', newPosition);
+        if (closingBrackets !== -1) {
+          textareaElement.setSelectionRange(closingBrackets, closingBrackets);
+        } else {
+          textareaElement.setSelectionRange(newPosition, newPosition);
+        }
+      }
       textareaElement.focus();
     }, 0);
   };
@@ -103,7 +151,12 @@
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
       </button>
-      <span>Sarah AI Assistant</span>
+      <div class="flex items-center gap-2 flex-1">
+        <span class="flex-1">{chatState.getCurrentChat()?.title ?? 'New Chat'}</span>
+        {#if chatState.currentChatId}
+          <ChatActions chatId={chatState.currentChatId} chatTitle={chatState.getCurrentChat()?.title ?? 'New Chat'} />
+        {/if}
+      </div>
     </div>
     <div class="flex-1 overflow-y-auto">
       <div class="flex flex-col gap-8 py-4 px-3">
@@ -138,7 +191,7 @@
           name="chat-input"
           id="chat-input"
           class="w-full border-none outline-none p-2.5 text-base flex-grow resize-none"
-          placeholder="Type your message here... Use @ to reference files"
+          placeholder="Type your message here... Use @ or [[ to reference files"
           disabled={chatModel.isLoading}
         ></textarea>
       </div>
