@@ -4,22 +4,12 @@
 
     let { chatId, chatTitle }: { chatId: number; chatTitle: string } = $props();
 
-    let editingTitle = $state('');
-    let isEditing = $state(false);
     let isMenuOpen = $state(false);
 
     function startEditing(e: Event) {
         e.stopPropagation();
-        editingTitle = chatTitle;
-        isEditing = true;
+        chatState.startEditing(chatId);
         isMenuOpen = false;
-    }
-
-    async function saveTitle() {
-        if (editingTitle.trim()) {
-            await chatState.updateChatTitle(chatId, editingTitle.trim());
-        }
-        isEditing = false;
     }
 
     function toggleMenu(e: Event) {
@@ -88,24 +78,6 @@
     {/if}
 </div>
 
-{#if isEditing}
-    <input
-        type="text"
-        bind:value={editingTitle}
-        onblur={saveTitle}
-        onkeydown={(e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveTitle();
-            } else if (e.key === 'Escape') {
-                isEditing = false;
-            }
-        }}
-        class="edit-title"
-        aria-label="Edit chat title"
-        onclick={(e) => e.stopPropagation()}
-    />
-{/if}
 
 <style>
     .chat-actions {
@@ -165,12 +137,4 @@
         background-color: var(--background-modifier-error);
     }
 
-    .edit-title {
-        width: 100%;
-        background: var(--background-primary);
-        border: 1px solid var(--background-modifier-border);
-        border-radius: 4px;
-        padding: 4px;
-        margin-top: 4px;
-    }
 </style>

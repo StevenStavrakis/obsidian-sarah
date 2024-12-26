@@ -4,6 +4,7 @@ import { chatDb, type StoredChat } from './ChatDatabase';
 export class ChatState {
     chats: StoredChat[] = $state([]);
     currentChatId: number | null = $state(null);
+    editingChatId: number | null = $state(null);
     isListView: boolean = $state(true);
     isLoading: boolean = $state(false);
 
@@ -46,13 +47,24 @@ export class ChatState {
         );
     }
 
+    startEditing(id: number) {
+        this.editingChatId = id;
+    }
+
     async updateChatTitle(id: number, title: string) {
-        await chatDb.updateChat(id, { title });
-        this.chats = this.chats.map(chat => 
-            chat.id === id 
-                ? { ...chat, title } 
-                : chat
-        );
+        if (title.trim()) {
+            await chatDb.updateChat(id, { title: title.trim() });
+            this.chats = this.chats.map(chat => 
+                chat.id === id 
+                    ? { ...chat, title: title.trim() } 
+                    : chat
+            );
+        }
+        this.editingChatId = null;
+    }
+
+    cancelEditing() {
+        this.editingChatId = null;
     }
 
     async selectChat(id: number) {

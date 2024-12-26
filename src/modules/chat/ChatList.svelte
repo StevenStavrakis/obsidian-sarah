@@ -3,6 +3,10 @@
     import { fade } from 'svelte/transition';
     import ChatActions from './ChatActions.svelte';
 
+    function focusOnMount(node: HTMLElement) {
+        node.focus();
+    }
+
     async function createNewChat() {
         const id = await chatState.createNewChat();
         await chatState.selectChat(id);
@@ -32,13 +36,38 @@
                 transition:fade
                 role="listitem"
             >
-                <button 
-                    class="chat-item-button"
-                    onclick={() => chatState.selectChat(chat.id!)}
-                    aria-current={chat.id === chatState.currentChatId}
-                >
-                    <span class="chat-title">{chat.title}</span>
-                </button>
+                {#if chat.id === chatState.editingChatId}
+                    <div class="chat-item-content editing">
+                        <input
+                            type="text"
+                            value={chat.title}
+                            onclick={(e: MouseEvent) => e.stopPropagation()}
+                            onblur={(e: FocusEvent) => chatState.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value)}
+                            onkeydown={(e: KeyboardEvent) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    chatState.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value);
+                                } else if (e.key === 'Escape') {
+                                    chatState.cancelEditing();
+                                }
+                            }}
+                            class="chat-title-input"
+                            aria-label="Edit chat title"
+                            use:focusOnMount
+                        />
+                    </div>
+                {:else}
+                    <div 
+                        class="chat-item-content"
+                        onclick={() => chatState.selectChat(chat.id!)}
+                        onkeydown={(e) => e.key === 'Enter' && chatState.selectChat(chat.id!)}
+                        role="button"
+                        tabindex="0"
+                        aria-current={chat.id === chatState.currentChatId}
+                    >
+                        <span class="chat-title">{chat.title}</span>
+                    </div>
+                {/if}
                 <div class="chat-item-actions">
                     <ChatActions chatId={chat.id!} chatTitle={chat.title} />
                 </div>
@@ -55,29 +84,39 @@
     }
 
     .chat-list-header {
-        padding: 16px;
+        padding: 16px 16px 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid var(--background-modifier-border);
+        margin-bottom: 4px;
     }
 
     .chat-list-header h3 {
         margin: 0;
+        font-size: 1.1em;
+        color: var(--text-normal);
+        font-weight: 600;
     }
 
     .new-chat-btn {
         background: none;
-        border: none;
+        border: 1px solid var(--background-modifier-border);
         cursor: pointer;
-        padding: 4px;
+        padding: 6px;
         color: var(--text-muted);
-        border-radius: 4px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
     }
 
     .new-chat-btn:hover {
         color: var(--text-normal);
         background-color: var(--background-modifier-hover);
+        transform: translateY(-1px);
+        border-color: var(--text-muted);
     }
 
     .chat-items {
@@ -89,33 +128,39 @@
     .chat-item {
         display: flex;
         align-items: center;
-        margin-bottom: 4px;
-        border-bottom: 1px solid var(--background-modifier-border);
+        padding: 2px 4px;
+        margin-bottom: 1px;
+        border-radius: 4px;
     }
 
-    .chat-item-button {
+    .chat-item-content {
         flex: 1;
         display: flex;
         align-items: center;
-        padding: 12px;
-        background: none;
-        border: none;
-        border-radius: 4px;
+        padding: 6px 8px;
         cursor: pointer;
         text-align: left;
         min-width: 0;
+        color: var(--text-muted);
+        border-radius: 4px;
     }
 
-    .chat-item-button:hover {
+    .chat-item:hover {
         background-color: var(--background-modifier-hover);
     }
 
-    .chat-item.active .chat-item-button {
-        background-color: var(--background-modifier-active);
+    .chat-item.active {
+        background-color: var(--background-secondary-alt);
+    }
+
+    .chat-item.active .chat-item-content {
+        color: var(--text-normal);
     }
 
     .chat-item-actions {
-        padding-right: 12px;
+        padding: 0 6px;
+        display: flex;
+        align-items: center;
     }
 
     .chat-title {
@@ -125,68 +170,18 @@
         white-space: nowrap;
     }
 
-    .edit-title {
+    .chat-title-input {
         width: 100%;
         background: var(--background-primary);
         border: 1px solid var(--background-modifier-border);
         border-radius: 4px;
-        padding: 4px;
-    }
-
-    .chat-actions {
-        position: relative;
-    }
-
-    .action-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px;
-        color: var(--text-muted);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-    }
-
-    .action-btn:hover {
+        padding: 4px 8px;
+        margin: 0;
+        font-size: inherit;
         color: var(--text-normal);
-        background-color: var(--background-modifier-hover);
     }
 
-    .action-menu {
-        position: absolute;
-        right: 0;
-        top: 100%;
-        background: var(--background-primary);
-        border: 1px solid var(--background-modifier-border);
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        min-width: 140px;
-        z-index: 100;
-    }
-
-    .menu-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        padding: 8px 12px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: var(--text-normal);
-        text-align: left;
-    }
-
-    .menu-item:hover {
-        background-color: var(--background-modifier-hover);
-    }
-
-    .menu-item.delete {
-        color: var(--text-error);
-    }
-
-    .menu-item.delete:hover {
-        background-color: var(--background-modifier-error);
+    .chat-item-content.editing {
+        padding: 4px;
     }
 </style>
