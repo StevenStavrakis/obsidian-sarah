@@ -14,7 +14,6 @@ export class ObsidianFileManager {
      * Gets file suggestions based on a partial search term
      */
     getFileSuggestions(partial: string): string[] {
-        console.log("Getting file suggestions")
         const files = this.app.vault.getFiles();
         const searchTerm = partial.toLowerCase();
         

@@ -8,7 +8,10 @@
   import { ChatAutocomplete } from "./ChatAutocomplete.svelte.ts";
   import type { ChatManager } from "./store/ChatManager.svelte";
 
-  let { chatManager }: { chatManager: ChatManager } = $props();
+  let { chatManager, onChatModelChange }: { 
+    chatManager: ChatManager,
+    onChatModelChange: (model: any) => void 
+  } = $props();
   let chatModel = $state(chatManager.getCurrentChatModel());
   let userInput = $state("");
   let textareaElement: HTMLTextAreaElement | null = $state(null);
@@ -17,6 +20,7 @@
 
   $effect(() => {
     chatModel = chatManager.getCurrentChatModel();
+    onChatModelChange(chatModel);
   });
 
   $effect(() => {
@@ -41,14 +45,17 @@
     const cursorPosition = textarea.selectionStart;
     const text = textarea.value;
 
-    userInput = text;
+    // Only update suggestions if we're typing in brackets
     const result = autocomplete.handleInput(
       text,
       cursorPosition,
       lastInputLength,
     );
+    
+    // Update input length for next comparison
     lastInputLength = text.length;
 
+    // Only modify the input if we got an auto-completion result (double brackets typed)
     if (result) {
       userInput = result.text;
       setTimeout(() => {
@@ -57,6 +64,9 @@
           result.cursorPosition,
         );
       }, 0);
+    } else {
+      // Otherwise just update the input directly
+      userInput = text;
     }
   };
 

@@ -69,6 +69,7 @@ export class ChatModule implements PluginModule {
         const view = leaf.view as ChatView;
         await view.preloadFile(file);
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     async openChatList(): Promise<void> {
@@ -115,6 +116,7 @@ export class ChatModule implements PluginModule {
         }
         
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     private getAllFilesInFolder(folder: TFolder): TFile[] {
@@ -153,16 +155,20 @@ export class ChatModule implements PluginModule {
         // Initialize chat store if needed
         const chatManager = initializeChatStore(this.plugin.settings.apiKey);
         
-        // Create a new chat and pre-load all files in the folder
+        // Create a new chat and select it
         const chatId = await chatManager.createNewChat();
+        await chatManager.selectChat(chatId);
+
+        // Pre-load all files in the folder
         const view = leaf.view as ChatView;
         const files = this.getAllFilesInFolder(folder);
         for (const file of files) {
             await view.preloadFile(file);
         }
-        await chatManager.selectChat(chatId);
 
+        // Ensure the chat view is visible and active
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     async createNewChatWithFile(file?: TFile): Promise<void> {
@@ -189,14 +195,18 @@ export class ChatModule implements PluginModule {
         // Initialize chat store if needed
         const chatManager = initializeChatStore(this.plugin.settings.apiKey);
         
-        // Create a new chat and pre-load the file if provided
+        // Create a new chat and select it
         const chatId = await chatManager.createNewChat();
+        await chatManager.selectChat(chatId);
+
+        // Pre-load the file if provided
         const view = leaf.view as ChatView;
         if (file) {
             await view.preloadFile(file);
         }
-        await chatManager.selectChat(chatId);
 
+        // Ensure the chat view is visible and active
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 }

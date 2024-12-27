@@ -7,6 +7,7 @@ import type MyPlugin from "src/main";
 export class ChatView extends ItemView {
     identifier: string;
     component: any | undefined; // Svelte component instance
+    chatModel: any | undefined; // Reference to the current chat model
     private plugin: MyPlugin;
 
     constructor(leaf: WorkspaceLeaf, identifier: string, plugin: MyPlugin) {
@@ -28,7 +29,12 @@ export class ChatView extends ItemView {
 
         this.component = mount(Chat, {
             target: this.contentEl,
-            props: { chatManager },
+            props: { 
+                chatManager,
+                onChatModelChange: (model: any) => {
+                    this.chatModel = model;
+                }
+            },
         });
     }
 
@@ -40,9 +46,17 @@ export class ChatView extends ItemView {
     }
 
     async preloadFile(file: TFile) {
-        const chatModel = this.component?.$$.ctx[0]?.chatModel;
-        if (chatModel) {
-            await chatModel.preloadFile(file);
+        // Wait for chat model to be available
+        let attempts = 0;
+        while (!this.chatModel && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (this.chatModel) {
+            await this.chatModel.preloadFile(file);
+        } else {
+            console.error('Chat model not initialized after timeout');
         }
     }
 }
