@@ -1,15 +1,19 @@
-import { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { FileTypeHandler } from './FileTypeHandler';
 import type { Messages } from '@anthropic-ai/sdk/resources';
+import { AppStore } from '@modules/types/AppStore';
 
 export class ObsidianFileManager {
-    constructor(private app: App) {}
+    constructor() {}
+
+    private get app() {
+        return AppStore.getApp();
+    }
 
     /**
      * Gets file suggestions based on a partial search term
      */
     getFileSuggestions(partial: string): string[] {
-        console.log("Getting file suggestions")
         const files = this.app.vault.getFiles();
         const searchTerm = partial.toLowerCase();
         

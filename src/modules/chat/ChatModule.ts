@@ -2,7 +2,7 @@ import type { PluginModule } from "@modules/types";
 import { TFile, TFolder, type Menu, type Plugin, type TAbstractFile, type WorkspaceLeaf } from "obsidian";
 import { ChatView } from "./ChatView.ts";
 import type MyPlugin from "src/main.ts";
-import { chatStore } from "./store/ChatStore.svelte.js";
+import { initializeChatStore, getChatManager } from "./store/ChatStore.svelte";
 
 export class ChatModule implements PluginModule {
     plugin: MyPlugin;
@@ -69,6 +69,7 @@ export class ChatModule implements PluginModule {
         const view = leaf.view as ChatView;
         await view.preloadFile(file);
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     async openChatList(): Promise<void> {
@@ -115,6 +116,7 @@ export class ChatModule implements PluginModule {
         }
         
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     private getAllFilesInFolder(folder: TFolder): TFile[] {
@@ -150,16 +152,23 @@ export class ChatModule implements PluginModule {
             });
         }
 
-        // Create a new chat and pre-load all files in the folder
-        const chatId = await chatStore.createNewChat();
+        // Initialize chat store if needed
+        const chatManager = initializeChatStore(this.plugin.settings.apiKey);
+        
+        // Create a new chat and select it
+        const chatId = await chatManager.createNewChat();
+        await chatManager.selectChat(chatId);
+
+        // Pre-load all files in the folder
         const view = leaf.view as ChatView;
         const files = this.getAllFilesInFolder(folder);
         for (const file of files) {
             await view.preloadFile(file);
         }
-        await chatStore.selectChat(chatId);
 
+        // Ensure the chat view is visible and active
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 
     async createNewChatWithFile(file?: TFile): Promise<void> {
@@ -183,14 +192,21 @@ export class ChatModule implements PluginModule {
             });
         }
 
-        // Create a new chat and pre-load the file if provided
-        const chatId = await chatStore.createNewChat();
+        // Initialize chat store if needed
+        const chatManager = initializeChatStore(this.plugin.settings.apiKey);
+        
+        // Create a new chat and select it
+        const chatId = await chatManager.createNewChat();
+        await chatManager.selectChat(chatId);
+
+        // Pre-load the file if provided
         const view = leaf.view as ChatView;
         if (file) {
             await view.preloadFile(file);
         }
-        await chatStore.selectChat(chatId);
 
+        // Ensure the chat view is visible and active
         workspace.revealLeaf(leaf);
+        workspace.setActiveLeaf(leaf, { focus: true });
     }
 }

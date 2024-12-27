@@ -1,14 +1,14 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
-    import { chatState } from './store/ChatState.svelte.ts';
+    import type { ChatManager } from './store/ChatManager.svelte';
 
-    let { chatId, chatTitle }: { chatId: number; chatTitle: string } = $props();
+    let { chatManager, chatId, chatTitle }: { chatManager: ChatManager; chatId: number; chatTitle: string } = $props();
 
     let isMenuOpen = $state(false);
 
     function startEditing(e: Event) {
         e.stopPropagation();
-        chatState.startEditing(chatId);
+        chatManager.startEditing(chatId);
         isMenuOpen = false;
     }
 
@@ -64,7 +64,7 @@
                 class="menu-item delete"
                 onclick={(e) => {
                     e.stopPropagation();
-                    chatState.deleteChat(chatId);
+                    chatManager.deleteChat(chatId);
                 }}
                 role="menuitem"
             >
