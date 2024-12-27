@@ -1,15 +1,17 @@
 <script lang="ts">
-    import { chatState } from './store/ChatState.svelte.ts';
     import { fade } from 'svelte/transition';
     import ChatActions from './ChatActions.svelte';
+    import type { ChatManager } from './store/ChatManager.svelte';
+
+    let { chatManager }: { chatManager: ChatManager } = $props();
 
     function focusOnMount(node: HTMLElement) {
         node.focus();
     }
 
     async function createNewChat() {
-        const id = await chatState.createNewChat();
-        await chatState.selectChat(id);
+        const id = await chatManager.createNewChat();
+        await chatManager.selectChat(id);
     }
 </script>
 
@@ -29,26 +31,26 @@
     </div>
     
     <ul class="chat-items">
-        {#each chatState.chats as chat (chat.id)}
+        {#each chatManager.chats as chat (chat.id)}
             <li 
                 class="chat-item"
-                class:active={chat.id === chatState.currentChatId}
+                class:active={chat.id === chatManager.currentChatId}
                 transition:fade
                 role="listitem"
             >
-                {#if chat.id === chatState.editingChatId}
+                {#if chat.id === chatManager.editingChatId}
                     <div class="chat-item-content editing">
                         <input
                             type="text"
                             value={chat.title}
                             onclick={(e: MouseEvent) => e.stopPropagation()}
-                            onblur={(e: FocusEvent) => chatState.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value)}
+                            onblur={(e: FocusEvent) => chatManager.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value)}
                             onkeydown={(e: KeyboardEvent) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    chatState.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value);
+                                    chatManager.updateChatTitle(chat.id!, (e.target as HTMLInputElement).value);
                                 } else if (e.key === 'Escape') {
-                                    chatState.cancelEditing();
+                                    chatManager.cancelEditing();
                                 }
                             }}
                             class="chat-title-input"
@@ -59,17 +61,17 @@
                 {:else}
                     <div 
                         class="chat-item-content"
-                        onclick={() => chatState.selectChat(chat.id!)}
-                        onkeydown={(e) => e.key === 'Enter' && chatState.selectChat(chat.id!)}
+                        onclick={() => chatManager.selectChat(chat.id!)}
+                        onkeydown={(e) => e.key === 'Enter' && chatManager.selectChat(chat.id!)}
                         role="button"
                         tabindex="0"
-                        aria-current={chat.id === chatState.currentChatId}
+                        aria-current={chat.id === chatManager.currentChatId}
                     >
                         <span class="chat-title">{chat.title}</span>
                     </div>
                 {/if}
                 <div class="chat-item-actions">
-                    <ChatActions chatId={chat.id!} chatTitle={chat.title} />
+                    <ChatActions {chatManager} chatId={chat.id!} chatTitle={chat.title} />
                 </div>
             </li>
         {/each}

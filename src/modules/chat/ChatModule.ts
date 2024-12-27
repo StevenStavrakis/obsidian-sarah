@@ -2,7 +2,7 @@ import type { PluginModule } from "@modules/types";
 import { TFile, TFolder, type Menu, type Plugin, type TAbstractFile, type WorkspaceLeaf } from "obsidian";
 import { ChatView } from "./ChatView.ts";
 import type MyPlugin from "src/main.ts";
-import { chatStore } from "./store/ChatStore.svelte.js";
+import { initializeChatStore, getChatManager } from "./store/ChatStore.svelte";
 
 export class ChatModule implements PluginModule {
     plugin: MyPlugin;
@@ -150,14 +150,17 @@ export class ChatModule implements PluginModule {
             });
         }
 
+        // Initialize chat store if needed
+        const chatManager = initializeChatStore(this.plugin.settings.apiKey);
+        
         // Create a new chat and pre-load all files in the folder
-        const chatId = await chatStore.createNewChat();
+        const chatId = await chatManager.createNewChat();
         const view = leaf.view as ChatView;
         const files = this.getAllFilesInFolder(folder);
         for (const file of files) {
             await view.preloadFile(file);
         }
-        await chatStore.selectChat(chatId);
+        await chatManager.selectChat(chatId);
 
         workspace.revealLeaf(leaf);
     }
@@ -183,13 +186,16 @@ export class ChatModule implements PluginModule {
             });
         }
 
+        // Initialize chat store if needed
+        const chatManager = initializeChatStore(this.plugin.settings.apiKey);
+        
         // Create a new chat and pre-load the file if provided
-        const chatId = await chatStore.createNewChat();
+        const chatId = await chatManager.createNewChat();
         const view = leaf.view as ChatView;
         if (file) {
             await view.preloadFile(file);
         }
-        await chatStore.selectChat(chatId);
+        await chatManager.selectChat(chatId);
 
         workspace.revealLeaf(leaf);
     }

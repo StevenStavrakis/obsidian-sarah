@@ -1,6 +1,7 @@
 import './styles.css'
 import { App, type PluginManifest, Plugin, PluginSettingTab, Setting } from "obsidian"
 import type { PluginModule } from "@modules/types";
+import { AppStore } from "@modules/types/AppStore";
 import { ChatModule } from "@modules/chat/ChatModule";
 
 interface PluginSettings {
@@ -17,6 +18,8 @@ export default class MyPlugin extends Plugin {
 
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
+    // Initialize the global App store
+    AppStore.setApp(app);
     this.modules = [
       new ChatModule(this),
     ]

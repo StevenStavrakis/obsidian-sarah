@@ -1,10 +1,9 @@
-import type MyPlugin from 'src/main';
 import type { Messages } from '@anthropic-ai/sdk/src/resources/messages/messages.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { TFile } from 'obsidian';
 import { createMessage, createTextBlock } from './utils';
 import { ObsidianFileManager } from './file/ObsidianFileManager';
-import { chatState } from './store/ChatState.svelte';
+import { chatDb } from './store/ChatDatabase';
 
 export interface DocumentContent {
     type: 'document';
@@ -13,117 +12,152 @@ export interface DocumentContent {
     data: string;
 }
 
-export class ChatModel {
+export class AnthropicChatModel {
     private client: Anthropic;
     private fileManager: ObsidianFileManager;
-    private plugin: MyPlugin;
-    userInput: string = $state("");
-    pendingDocuments: DocumentContent[] = $state([]);
+    private chatId: number;
+    userInput = $state("");
+    history: Messages.MessageParam[] = $state([]);
     isLoading: boolean = $state(false);
     error: string | null = $state(null);
+    chunks: string[] = [];
 
-    constructor(plugin: MyPlugin) {
-        this.plugin = plugin;
-        this.fileManager = new ObsidianFileManager(plugin.app);
+    constructor(apiKey: string, chatId: number) {
+        this.chatId = chatId;
+        this.fileManager = new ObsidianFileManager();
         this.client = new Anthropic({
-            apiKey: plugin.settings.apiKey,
+            apiKey,
             dangerouslyAllowBrowser: true
+        });
+
+        this.loadMessages();
+
+        $effect.root(() => {
+            $effect(() => {
+                this.userInput;
+                this.parseInputIntoChunks();
+            });
         });
     }
 
-    // Public methods for file operations
-    getFileSuggestions(partial: string): string[] {
-        return this.fileManager.getFileSuggestions(partial);
-    }
-
-    getApp() {
-        return this.plugin.app;
-    }
-
-    async preloadFile(file: TFile): Promise<void> {
-        const currentInput = this.userInput.trim();
-        const fileReference = `[[${file.path}]]`;
-        
-        this.userInput = currentInput
-            ? `${currentInput} ${fileReference}`
-            : fileReference;
-    }
-
-    async parseInputIntoMessage(): Promise<Messages.MessageParam> {
+    parseInputIntoChunks() {
+        console.log("parsing input")
         const messageText = this.userInput.trim();
+
+        const strChunks: string[] = [];
+
+        const openBracketsIndices = Array.from(messageText.matchAll(/\[\[/g)).map(match => (match.index !== undefined ? match.index : 0));
+        const closeBracketsIndices = Array.from(messageText.matchAll(/\]\]/g)).map(match => (match.index !== undefined ? match.index : 0));
+        let lastIndex = 0;
+
+        for (let i = 0; i < openBracketsIndices.length; i++) {
+            const openIndex = openBracketsIndices[i];
+            const closeIndex = closeBracketsIndices.find(idx => idx > openIndex);
+
+            // If there is no matching close bracket, we can break or handle the remainder.
+            if (closeIndex === undefined) {
+                break;
+            }
+
+            // If there's text before this bracketed section, push it into the chunks.
+            if (openIndex > lastIndex) {
+                const textChunk = messageText.substring(lastIndex, openIndex);
+                if (textChunk) {
+                    strChunks.push(textChunk);
+                }
+            }
+
+            // Push the bracketed text as its own chunk.
+            const bracketChunk = messageText.substring(openIndex, closeIndex + 2);
+            strChunks.push(bracketChunk);
+
+            lastIndex = closeIndex + 2;
+        }
+
+        // If there's leftover text after the last bracket, add it as a final chunk.
+        if (lastIndex < messageText.length) {
+            const remainingText = messageText.substring(lastIndex);
+            if (remainingText) {
+                strChunks.push(remainingText);
+            }
+        }
+        console.log(strChunks)
+        this.chunks = strChunks;
+    }
+
+    async chunksToMessage(): Promise<Messages.MessageParam> {
+        const { chunks } = this;
         const blocks: Messages.ContentBlockParam[] = [];
 
-        // Extract file references in [[]] syntax
-        const fileRefs = messageText.match(/\[\[[^\[\]]+\]\]/g) || [];
-
-        if (fileRefs.length > 0) {
-            let lastIndex = 0;
-            for (const ref of fileRefs) {
-                const refIndex = messageText.indexOf(ref, lastIndex);
-                const textBetween = messageText.slice(lastIndex, refIndex).trim();
-                
-                if (textBetween) {
-                    blocks.push(createTextBlock(textBetween));
-                }
-                
-                const filePath = ref.slice(2, -2); // Remove [[ and ]]
+        for (const chunk of chunks) {
+            if (chunk.startsWith('[[') && chunk.endsWith(']]')) {
+                // remove the brackets from the chunk
+                const filePath = chunk.slice(2, -2);
                 try {
                     const contentBlock = await this.fileManager.createAttachmentBlock(filePath);
                     blocks.push(contentBlock);
                 } catch (error) {
                     console.warn(`Failed to load file content for ${filePath}:`, error);
                 }
-
-                lastIndex = refIndex + ref.length;
+            } else {
+                blocks.push(createTextBlock(chunk));
             }
-            
-            const remainingText = messageText.slice(lastIndex).trim();
-            if (remainingText) {
-                blocks.push(createTextBlock(remainingText));
-            }
-        } else {
-            blocks.push(createTextBlock(messageText));
         }
-
         return createMessage('user', blocks);
     }
 
     async getCompletion() {
+        console.log("getting completion")
+        console.log("chunks", this.chunks)
+        console.log("input", this.userInput)
+        const oldUserInput = $state.snapshot(this.userInput);
+        console.log(this.chunks)
         try {
+            this.userInput = "";
             this.isLoading = true;
             this.error = null;
+            const parsedUserInput = await this.chunksToMessage();
+            const newHistory = [...this.history, parsedUserInput];
+            await this.updateMessages(newHistory);
 
-            const message = await this.parseInputIntoMessage();
-            this.userInput = "";
-            
-            // Create a new chat if none is selected
-            if (!chatState.currentChatId) {
-                const id = await chatState.createNewChat();
-                await chatState.selectChat(id);
-            }
-
-            // Get current messages and add user message
-            const currentMessages = chatState.getCurrentMessages();
-            const updatedMessages = [...currentMessages, message];
-            await chatState.updateChatMessages(chatState.currentChatId!, updatedMessages);
-
-            // Get AI response
             const response = await this.client.messages.create({
-                messages: updatedMessages,
+                messages: this.history,
                 max_tokens: 1024,
                 model: "claude-3-5-sonnet-20241022"
             });
 
-            // Add AI response to chat
+            console.log("Response: ", response.content[0]);
             const parsedResponse = createMessage('assistant', response.content);
-            const finalMessages = [...updatedMessages, parsedResponse];
-            await chatState.updateChatMessages(chatState.currentChatId!, finalMessages);
-            
+            const finalHistory = [...this.history, parsedResponse];
+            await this.updateMessages(finalHistory);
         } catch (error) {
             console.error('Error in getCompletion:', error);
             this.error = error instanceof Error ? error.message : 'An unknown error occurred';
+            this.userInput = oldUserInput;
+            this.history.pop();
         } finally {
             this.isLoading = false;
         }
+    }
+
+    private async loadMessages() {
+        const chat = await chatDb.getChat(this.chatId);
+        if (chat) {
+            this.history = chat.messages;
+        }
+    }
+
+    private async updateMessages(messages: Messages.MessageParam[]) {
+        await chatDb.updateChat(this.chatId, { messages });
+        this.history = messages;
+    }
+
+    async preloadFile(file: TFile): Promise<void> {
+        const currentInput = this.userInput.trim();
+        const fileReference = `[[${file.path}]]`;
+
+        this.userInput = currentInput
+            ? `${currentInput} ${fileReference}`
+            : fileReference;
     }
 }
