@@ -90,6 +90,7 @@ export class AnthropicChatModel {
         const blocks: Messages.ContentBlockParam[] = [];
 
         for (const chunk of chunks) {
+            if (chunk === " ") continue;
             if (chunk.startsWith('[[') && chunk.endsWith(']]')) {
                 // remove the brackets from the chunk
                 const filePath = chunk.slice(2, -2);
@@ -107,16 +108,12 @@ export class AnthropicChatModel {
     }
 
     async getCompletion() {
-        console.log("getting completion")
-        console.log("chunks", this.chunks)
-        console.log("input", this.userInput)
         const oldUserInput = $state.snapshot(this.userInput);
-        console.log(this.chunks)
+        const parsedUserInput = await this.chunksToMessage();
         try {
             this.userInput = "";
             this.isLoading = true;
             this.error = null;
-            const parsedUserInput = await this.chunksToMessage();
             const newHistory = [...this.history, parsedUserInput];
             await this.updateMessages(newHistory);
 
@@ -132,6 +129,7 @@ export class AnthropicChatModel {
             await this.updateMessages(finalHistory);
         } catch (error) {
             console.error('Error in getCompletion:', error);
+            console.error("Error caused by: ", [...$state.snapshot(this.history), parsedUserInput]);
             this.error = error instanceof Error ? error.message : 'An unknown error occurred';
             this.userInput = oldUserInput;
             this.history.pop();
