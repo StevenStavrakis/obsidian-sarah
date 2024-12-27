@@ -3,6 +3,7 @@ import { App, type PluginManifest, Plugin, PluginSettingTab, Setting } from "obs
 import type { PluginModule } from "@modules/types";
 import { AppStore } from "@modules/types/AppStore";
 import { ChatModule } from "@modules/chat/ChatModule";
+import { FlashModule } from '@modules/flashcards/FlashcardModule';
 
 interface PluginSettings {
   apiKey: string;
@@ -22,6 +23,7 @@ export default class MyPlugin extends Plugin {
     AppStore.setApp(app);
     this.modules = [
       new ChatModule(this),
+      new FlashModule(this),
     ]
   }
 
